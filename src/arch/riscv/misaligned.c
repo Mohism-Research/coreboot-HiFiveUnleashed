@@ -57,7 +57,7 @@ struct memory_instruction_info {
 	unsigned int sign_extend : 1; /* mark need to be sign extended */
 };
 
-static struct memory_instruction_info insn_info[] = {
+static const struct memory_instruction_info insn_info[] = {
 #if __riscv_xlen == 128
 	{ 0x00002000, 0x0000e003,  2,  7, 8, 0, 1, 16, 1}, // C.LQ
 #else
@@ -136,7 +136,7 @@ static struct memory_instruction_info insn_info[] = {
 #endif // defined(__riscv_flen)
 };
 
-static struct memory_instruction_info *match_instruction(uintptr_t insn)
+static const struct memory_instruction_info *match_instruction(uintptr_t insn)
 {
 	int i;
 	for (i = 0; i < ARRAY_SIZE(insn_info); i++)
@@ -187,7 +187,7 @@ void handle_misaligned(trapframe *tf)
 	}
 
 	/* matching instruction */
-	struct memory_instruction_info *match = match_instruction(insn);
+	const struct memory_instruction_info *match = match_instruction(insn);
 
 	if (!match) {
 		redirect_trap();

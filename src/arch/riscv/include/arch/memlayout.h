@@ -18,6 +18,14 @@
 #ifndef __ARCH_MEMLAYOUT_H
 #define __ARCH_MEMLAYOUT_H
 
+#if ENV_BOOTBLOCK
+/*
+ * No .data or .bss sections in the bootblock
+ */
+#define ARCH_STAGE_HAS_DATA_SECTION 0
+#define ARCH_STAGE_HAS_BSS_SECTION 0
+#endif
+
 #define STACK(addr, size) REGION(stack, addr, size, 4096)
 
 #if defined(__PRE_RAM__)
