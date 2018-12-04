@@ -34,8 +34,8 @@ void smp_pause(int working_hartid)
 			barrier();
 		} while (SYNCA != 0x01234567);
 
-		clear_csr(mstatus, MSTATUS_MIE);
-		write_csr(mie, MIP_MSIP);
+		uintptr_t bkp_mstatus = clear_csr(mstatus, MSTATUS_MIE);
+		uintptr_t bkp_mie = swap_csr(mie, MIP_MSIP);
 
 		/* count how many cores enter the halt */
 		__sync_fetch_and_add(&SYNCB, 1);
@@ -45,6 +45,10 @@ void smp_pause(int working_hartid)
 			__asm__ volatile ("wfi");
 		} while ((read_csr(mip) & MIP_MSIP) == 0);
 		set_msip(hartid, 0);
+
+		write_csr(mstatus, bkp_mstatus);
+		write_csr(mie, bkp_mie);
+
 		HLS()->entry.fn(HLS()->entry.arg);
 	} else {
 		/* Initialize the counter and
