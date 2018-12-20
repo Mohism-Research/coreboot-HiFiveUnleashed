@@ -12,6 +12,7 @@
 # GNU General Public License for more details.
 
 romstage-y += romstage.c
+romstage-y += hifive-unleashed.dtb.S
 
 bootblock-y += memlayout.ld
 romstage-y += memlayout.ld

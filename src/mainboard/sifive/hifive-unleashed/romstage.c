@@ -20,6 +20,43 @@
 #include <program_loading.h>
 #include <soc/clock.h>
 #include <soc/sdram.h>
+#include <mcall.h>
+#include <fdt.h>
+#include <string.h>
+#include <symbols.h>
+
+extern char own_dtb;
+
+static void update_dtb(void)
+{
+	uintptr_t dtb_maskrom = (uintptr_t) &own_dtb;
+	uint32_t  dtb_size = fdt_size(dtb_maskrom);
+	uintptr_t dtb_target = (uintptr_t)cbmem_add(CBMEM_ID_DEVICETREE, dtb_size);
+
+#define DEQ(mon, x) ((cdate[0] == mon[0] && cdate[1] == mon[1] && cdate[2] == mon[2]) ? x : 0)
+	const char *cdate = __DATE__;
+	int month =
+		DEQ("Jan", 1) | DEQ("Feb",  2) | DEQ("Mar",  3) | DEQ("Apr",  4) |
+		DEQ("May", 5) | DEQ("Jun",  6) | DEQ("Jul",  7) | DEQ("Aug",  8) |
+		DEQ("Sep", 9) | DEQ("Oct", 10) | DEQ("Nov", 11) | DEQ("Dec", 12);
+
+	char date[11] = "YYYY-MM-DD";
+	date[0] = cdate[7];
+	date[1] = cdate[8];
+	date[2] = cdate[9];
+	date[3] = cdate[10];
+	date[5] = '0' + (month/10);
+	date[6] = '0' + (month%10);
+	date[8] = cdate[4];
+	date[9] = cdate[5];
+
+	memcpy((void*)dtb_target, (void*)dtb_maskrom, dtb_size);
+	fdt_reduce_mem(dtb_target, (uintptr_t)_dram + sdram_size_mb() * 1024 * 1024);
+	fdt_set_prop(dtb_target, "sifive,fsbl", (uint8_t*)&date[0]);
+
+	for (int i = 0; i < CONFIG_MAX_CPUS; i++)
+		OTHER_HLS(i)->fdt = (void*)dtb_target;
+}
 
 void main(void)
 {
@@ -39,9 +76,11 @@ void main(void)
 	if (IS_ENABLED(CONFIG_CONSOLE_SERIAL))
 		uart_init(CONFIG_UART_FOR_CONSOLE);
 
-	sdram_init();
+	//sdram_init();
 
 	cbmem_initialize_empty();
+
+	update_dtb();
 
 	run_ramstage();
 }

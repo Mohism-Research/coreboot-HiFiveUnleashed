@@ -57,6 +57,7 @@ bootblock-y += boot.c
 bootblock-y += smp.c
 bootblock-y += misc.c
 bootblock-y += pmp.c
+bootblock-y += fdt.c
 bootblock-y += \
 	$(top)/src/lib/memchr.c \
 	$(top)/src/lib/memcmp.c \
@@ -87,6 +88,7 @@ romstage-y += stages.c
 romstage-y += misc.c
 romstage-y += pmp.c
 romstage-y += smp.c
+romstage-y += fdt.c
 romstage-y += \
 	$(top)/src/lib/memchr.c \
 	$(top)/src/lib/memcmp.c \
@@ -128,6 +130,7 @@ ramstage-y += boot.c
 ramstage-y += tables.c
 ramstage-y += payload.c
 ramstage-y += pmp.c
+ramstage-y += fdt.c
 ramstage-y += \
 	$(top)/src/lib/memchr.c \
 	$(top)/src/lib/memcmp.c \

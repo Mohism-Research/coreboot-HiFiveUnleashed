@@ -35,6 +35,9 @@ struct prci_ctlr {
 	u32 gemgxlpllcfg1;	/* offset 0x20 */
 	u32 coreclksel;		/* offset 0x24 */
 	u32 devicesresetreg;	/* offset 0x28 */
+	u32 clkmuxstatus;	/* offset 0x2c */
+	u32 reserved30[48];	/* offset 0x30*/
+	u32 procmoncfg;		/* offset 0xf0*/
 };
 
 static struct prci_ctlr *prci = (void *)FU540_PRCI;
@@ -141,13 +144,29 @@ static const struct pll_settings ddrpll_settings = {
 	.fse = 1,
 };
 
+static const struct pll_settings gemgxlpll_settings = {
+	.divr = 0,
+	.divf = 59,
+	.divq = 5,
+	.range = 4,
+	.bypass = 0,
+	.fse = 1,
+};
+
 static void init_coreclk(void)
 {
 	// switch coreclk to input reference frequency before modifying PLL
+	/*
 	clrsetbits_le32(&prci->coreclksel, PRCI_CORECLK_MASK,
 		PRCI_CORECLK_HFCLK);
+	*/
+	if (prci->clkmuxstatus & (1 << 1)) {
+		die("prci->clkmuxstatus tlclksel is set");
+	}
 
 	configure_pll(&prci->corepllcfg0, &corepll_settings);
+
+	prci->reserved08 = 1 << 31;
 
 	// switch coreclk to use corepll
 	clrsetbits_le32(&prci->coreclksel, PRCI_CORECLK_MASK,
@@ -157,15 +176,22 @@ static void init_coreclk(void)
 static void init_pll_ddr(void)
 {
 	// disable ddr clock output before reconfiguring the PLL
-	u32 cfg1 = read32(&prci->ddrpllcfg1);
+	u32 cfg1 = read32(&prci->ddrpllcfg1);/*
 	clrbits_le32(&cfg1, PRCI_DDRPLLCFG1_MASK);
-	write32(&prci->ddrpllcfg1, cfg1);
+	write32(&prci->ddrpllcfg1, cfg1);*/
 
 	configure_pll(&prci->ddrpllcfg0, &ddrpll_settings);
 
 	// enable ddr clock output
 	setbits_le32(&cfg1, PRCI_DDRPLLCFG1_MASK);
 	write32(&prci->ddrpllcfg1, cfg1);
+}
+
+static void init_gemgxlclk(void)
+{
+	configure_pll(&prci->gemgxlpllcfg0, &gemgxlpll_settings);
+
+	prci->gemgxlpllcfg1 = 1 << 31;
 }
 
 #define FU540_UART_DEVICES 2
@@ -186,6 +212,22 @@ static void update_peripheral_clock_dividers(void)
 		write32((uint32_t *)(FU540_UART(i) + FU540_UART_REG_DIV), FU540_UART_DIV_VAL);
 }
 
+static const long nsec_per_cyc = 300; // 33.333MHz
+#define VVAR(n)	(*(volatile long *)(&(n)))
+static void nsleep(long nsec) {
+  long step = nsec_per_cyc*2; // 2 instructions per loop iteration
+  while (VVAR(nsec) > 0) {
+	  VVAR(nsec) -= step;
+  }
+}
+
+#define GPIO_OUTPUT_EN  (0x08)
+#define GPIO_OUTPUT_VAL (0x0C)
+
+#define GPIO_REG(n)	(*(volatile uint32_t*)(FU540_GPIO + (n)))
+
+
+void sdram_init(void);
 void clock_init(void)
 {
 	/*
@@ -206,14 +248,13 @@ void clock_init(void)
 	// https://github.com/sifive/freedom-u540-c000-bootloader
 
 	// get DDR out of reset
-	write32(&prci->devicesresetreg, PRCI_DEVICESRESET_DDR_CTRL_RST_N(1));
+	setbits_le32(&prci->devicesresetreg, PRCI_DEVICESRESET_DDR_CTRL_RST_N(1));
 
 	// HACK to get the '1 full controller clock cycle'.
 	asm volatile ("fence");
 
 	// get DDR out of reset
-	write32(&prci->devicesresetreg,
-		PRCI_DEVICESRESET_DDR_CTRL_RST_N(1) |
+	setbits_le32(&prci->devicesresetreg,
 		PRCI_DEVICESRESET_DDR_AXI_RST_N(1) |
 		PRCI_DEVICESRESET_DDR_AHB_RST_N(1) |
 		PRCI_DEVICESRESET_DDR_PHY_RST_N(1));
@@ -227,6 +268,24 @@ void clock_init(void)
 	// device?
 	for (int i = 0; i < 256; i++)
 		asm volatile ("nop");
+
+	sdram_init();
+
+	init_gemgxlclk();
+	setbits_le32(&prci->devicesresetreg, PRCI_DEVICESRESET_GEMGXL_RST_N(1));
+
+
+#define PHY_NRESET 0x1000
+	nsleep(2000000);
+	__sync_fetch_and_or(&GPIO_REG(GPIO_OUTPUT_VAL),  PHY_NRESET);
+	__sync_fetch_and_or(&GPIO_REG(GPIO_OUTPUT_EN),   PHY_NRESET);
+	nsleep(100);
+	__sync_fetch_and_and(&GPIO_REG(GPIO_OUTPUT_VAL), ~PHY_NRESET);
+	nsleep(100);
+	__sync_fetch_and_or(&GPIO_REG(GPIO_OUTPUT_VAL),  PHY_NRESET);
+	nsleep(15000000);
+
+	prci->procmoncfg = 1 << 24;
 }
 #endif /* ENV_ROMSTAGE */
 
