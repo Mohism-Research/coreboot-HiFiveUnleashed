@@ -58,6 +58,8 @@ static void update_dtb(void)
 		OTHER_HLS(i)->fdt = (void*)dtb_target;
 }
 
+extern void flash_init(void);
+
 void main(void)
 {
 	console_init();
@@ -76,6 +78,7 @@ void main(void)
 	if (IS_ENABLED(CONFIG_CONSOLE_SERIAL))
 		uart_init(CONFIG_UART_FOR_CONSOLE);
 
+	flash_init();
 	//sdram_init();
 
 	cbmem_initialize_empty();
