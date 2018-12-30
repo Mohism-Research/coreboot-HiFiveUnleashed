@@ -24,6 +24,7 @@
 #include <fdt.h>
 #include <string.h>
 #include <symbols.h>
+#include <soc/otp.h>
 
 extern char own_dtb;
 
@@ -53,6 +54,15 @@ static void update_dtb(void)
 	memcpy((void*)dtb_target, (void*)dtb_maskrom, dtb_size);
 	fdt_reduce_mem(dtb_target, (uintptr_t)_dram + sdram_size_mb() * 1024 * 1024);
 	fdt_set_prop(dtb_target, "sifive,fsbl", (uint8_t*)&date[0]);
+
+	uint32_t serial = otp_read_serial();
+	unsigned char mac[6] = { 0x70, 0xb3, 0xd5, 0x92, 0xf0, 0x00 };
+	if (serial != ~0) {
+		mac[5] |= (serial >>  0) & 0xff;
+		mac[4] |= (serial >>  8) & 0xff;
+		mac[3] |= (serial >> 16) & 0xff;
+	}
+	fdt_set_prop(dtb_target, "local-mac-address", &mac[0]);
 
 	for (int i = 0; i < CONFIG_MAX_CPUS; i++)
 		OTHER_HLS(i)->fdt = (void*)dtb_target;
