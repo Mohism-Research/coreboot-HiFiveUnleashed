@@ -24,13 +24,13 @@
 #include <fdt.h>
 #include <string.h>
 #include <symbols.h>
+#include <cbfs.h>
 #include <soc/otp.h>
-
-extern char own_dtb;
 
 static void update_dtb(void)
 {
-	uintptr_t dtb_maskrom = (uintptr_t) &own_dtb;
+	uintptr_t dtb_maskrom = (uintptr_t)
+		cbfs_boot_map_with_leak("fallback/DTB", CBFS_TYPE_RAW, NULL);
 	uint32_t  dtb_size = fdt_size(dtb_maskrom);
 	uintptr_t dtb_target = (uintptr_t)cbmem_add(CBMEM_ID_DEVICETREE, dtb_size);
 

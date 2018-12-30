@@ -16,8 +16,16 @@ bootblock-y += bootblock.c
 
 romstage-y += flash.c
 romstage-y += romstage.c
-romstage-y += hifive-unleashed.dtb.S
 
 bootblock-y += memlayout.ld
 romstage-y += memlayout.ld
 ramstage-y += memlayout.ld
+
+DTB=build/hifive-unleashed.dtb
+DTS=src/mainboard/sifive/hifive-unleashed/hifive-unleashed.dts
+$(DTB): $(DTS)
+	dtc -I dts -O dtb -o $(DTB) $(DTS)
+
+cbfs-files-y += fallback/DTB
+fallback/DTB-file := $(DTB)
+fallback/DTB-type := raw
